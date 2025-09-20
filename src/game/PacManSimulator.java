@@ -53,29 +53,6 @@ public class PacManSimulator {
 		
 		int lastLevel = game.getCurLevel();
 		
-		// START CONTROLLERS (threads auto-start during instantiation)
-		ThinkingThread pacManThread = 
-			new ThinkingThread(
-				"PAC-MAN",
-				new IThinkingMethod() {
-					@Override
-					public void think() {
-						config.pacManController.tick(game.copy(), due);		
-					}
-				}
-			);
-		ThinkingThread ghostsThread =
-			new ThinkingThread(
-				"GHOSTS",
-				new IThinkingMethod() {
-					@Override
-					public void think() {
-                        if (config.ghostsController != null)
-                            config.ghostsController.tick(game, due);			
-					}
-				}
-			);
-        
 		// START THE GAME
 		try {
 			while(!game.gameOver())
@@ -83,14 +60,15 @@ public class PacManSimulator {
 				due = System.currentTimeMillis() + config.thinkTimeMillis;
 
 				if (!game.isSuspended()) {
-					pacManThread.startThinking();
-					ghostsThread.startThinking();
-					
-					if (!pacManThread.waitForResult(due))
-						System.out.println("[SIMULATOR] PacMan is still thinking!");
+                    config.pacManController.tick(game.copy(), due);
+                    boolean pacManLag = System.currentTimeMillis() > due;
+                    if (pacManLag)
+                        System.out.println("[SIMULATOR] PacMan took too long to choose a move!");
 
-					if (!ghostsThread.waitForResult(due))
-						System.out.println("[SIMULATOR] Ghosts are still thinking!");
+                    if (config.ghostsController != null)
+                        config.ghostsController.tick(game, due);
+                    if (!pacManLag && System.currentTimeMillis() > due)
+                        System.out.println("[SIMULATOR] Ghosts took too long to choose moves!");
 				}
 
                 if (config.visualize) {
@@ -147,10 +125,6 @@ public class PacManSimulator {
 		        }
 			}
 		} finally {		
-			// KILL THREADS
-			pacManThread.kill();
-			ghostsThread.kill();
-			
 			// CLEAN UP
 			if (config.visualize) {
 				if (config.pacManController instanceof KeyListener) {				
